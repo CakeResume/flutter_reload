@@ -8,7 +8,7 @@ typedef GuardViewWrapper = Widget Function(BuildContext context, Widget child);
 class GuardView extends RawGuardView {
   GuardView({
     super.key,
-    required GuardViewChangeNotifier model,
+    required GuardViewModel model,
     required super.builder,
     super.abnormalStateBuilder,
     super.wrapper,

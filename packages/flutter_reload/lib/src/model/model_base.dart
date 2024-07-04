@@ -39,23 +39,23 @@ abstract class ViewModel implements Listenable {
   void dispose();
 }
 
-abstract class GuardViewChangeNotifier extends ChangeNotifier
-    with GuardViewNotifierMixin
+abstract class GuardViewModel extends ChangeNotifier
+    with GuardViewModelMixin
     implements ViewModel {
-  GuardViewChangeNotifier(GuardState state, {this.parent})
+  GuardViewModel(GuardState state, {this.parent})
       : guardViewController = GuardViewController(state);
 
   @override
   final GuardViewController guardViewController;
 
   @override
-  final GuardViewNotifierMixin? parent;
+  final GuardViewModelMixin? parent;
 }
 
-abstract class GuardViewEventNotifier<T> extends GuardViewChangeNotifier
+abstract class GuardViewEventModel<T> extends GuardViewModel
     with EventNotifier<T> //only for fit Riverpod's dispose lifecycle
 {
-  GuardViewEventNotifier(super.state, {super.parent});
+  GuardViewEventModel(super.state, {super.parent});
 }
 
 enum GuardExceptionHandleResult {
@@ -68,9 +68,9 @@ enum GuardExceptionHandleResult {
   bool get shouldHandleOffline => this == byDefault;
 }
 
-mixin GuardViewNotifierMixin {
+mixin GuardViewModelMixin {
   GuardViewController get guardViewController;
-  GuardViewNotifierMixin? get parent;
+  GuardViewModelMixin? get parent;
 
   FutureOr<T?> guard<T>(
     DataSupplier<FutureOr<T?>> action, {
