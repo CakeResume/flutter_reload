@@ -9,25 +9,33 @@ final newsService = _HackerNewsService();
 class _HackerNewsService {
   final String baseUrl = 'https://hacker-news.firebaseio.com/v0';
 
-  Future<List<NewsEntity>> getNews(int page) async {
-    const int pageSize = 20; // Define the number of items per page
-    final int start = (page - 1) * pageSize;
-    final int end = start + pageSize;
+  List<int>? entityIds;
 
-    final response = await http.get(Uri.parse('$baseUrl/topstories.json'));
-
-    if (response.statusCode == 200) {
-      List<dynamic> storyIds = jsonDecode(response.body);
+  Future<List<NewsEntity>> getNews({
+    required int start,
+    required int end,
+    bool force = false,
+  }) async {
+    Future<List<NewsEntity>> fetchNewsItem(List<int> storyIds) {
       List<Future<NewsEntity>> futureStories = [];
 
       for (int i = start; i < end && i < storyIds.length; i++) {
         futureStories.add(_fetchStory(storyIds[i]));
       }
 
-      return await Future.wait(futureStories);
-    } else {
-      throw CustomException(message: 'Failed to load news', isOffline: false);
+      return Future.wait(futureStories);
     }
+
+    if (force || entityIds == null) {
+      final response = await http.get(Uri.parse('$baseUrl/topstories.json'));
+      if (response.statusCode == 200) {
+        entityIds = (jsonDecode(response.body) as List).cast();
+      } else {
+        throw CustomException(message: 'Failed to load news', isOffline: false);
+      }
+    }
+
+    return fetchNewsItem(entityIds!);
   }
 
   Future<NewsEntity> _fetchStory(int id) async {

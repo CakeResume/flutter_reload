@@ -6,6 +6,8 @@ import 'package:news/service.dart';
 
 class HackNewsViewModel extends GuardViewModel
     with PaginationViewMixin<NewsEntity> {
+  static const int pageSize = 20;
+
   @override
   late final PaginationModel<NewsEntity> paginationModel;
 
@@ -20,7 +22,12 @@ class HackNewsViewModel extends GuardViewModel
   FutureOr<void> reload() async {
     guardViewController.value = GuardState.init;
     await guard(() async {
-      final res = await _fetchNewsPage(PaginationModel.firstPage);
+      final paging = _pageToStartEnd(PaginationModel.firstPage);
+      final res = await newsService.getNews(
+        start: paging.start,
+        end: paging.end,
+        force: true,
+      );
       paginationModel.reset(
         currentPage: PaginationModel.firstPage,
         lastPage: PaginationModel.infinityPage,
@@ -35,19 +42,22 @@ class HackNewsViewModel extends GuardViewModel
   FutureOr<({int page, List<NewsEntity> data})?> fetchNextPage(
       int nextPage) async {
     return (await guard(() async {
-      final res = await _fetchNewsPage(nextPage);
+      final paging = _pageToStartEnd(nextPage);
+      final res =
+          await newsService.getNews(start: paging.start, end: paging.end);
       notifyListeners();
       return res.isNotEmpty ? (page: nextPage, data: res) : null;
     }));
   }
 
-  Future<List<NewsEntity>> _fetchNewsPage(int page) async {
-    return await newsService.getNews(page);
+  int calculateTotalPages(int totalEntries) {
+    return (totalEntries / pageSize).ceil();
   }
 
-  int calculateTotalPages(int totalEntries) {
-    const int pageSize = 20; // Define the number of items per page
-    return (totalEntries / pageSize).ceil();
+  ({int start, int end}) _pageToStartEnd(int page) {
+    final int start = (page - 1) * pageSize;
+    final int end = start + pageSize;
+    return (start: start, end: end);
   }
 }
 
