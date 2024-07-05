@@ -49,7 +49,7 @@ class RawGuardView extends StatefulWidget {
   }
 
   static GuardAbnormalStateBuilder defaultAbnormalStateBuilder =
-      ReloadConfiguration.instance.stateBuilder;
+      ReloadConfiguration.instance.abnormalStateBuilder;
 }
 
 class GuardViewState<T extends RawGuardView> extends State<T> {

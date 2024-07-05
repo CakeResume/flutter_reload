@@ -3,7 +3,7 @@ part of 'reload.dart';
 typedef ExceptionHandler = void Function(
   dynamic exception,
   dynamic stackTrace, {
-  bool silent,
+  required bool silent,
   GuardViewController? guardViewController,
   GuardExceptionHandleResult Function(dynamic exception, dynamic stackTrace)?
       onError,
@@ -20,18 +20,18 @@ class ReloadConfiguration {
   static ReloadConfiguration? _instance;
   static init({
     required ExceptionHandler exceptionHandle,
-    required GuardAbnormalStateBuilder stateBuilder,
+    required GuardAbnormalStateBuilder abnormalStateBuilder,
   }) {
     _instance ??= ReloadConfiguration._(
       exceptionHandle: exceptionHandle,
-      stateBuilder: stateBuilder,
+      abnormalStateBuilder: abnormalStateBuilder,
     );
   }
 
   ReloadConfiguration._({
     required this.exceptionHandle,
-    required this.stateBuilder,
+    required this.abnormalStateBuilder,
   });
   final ExceptionHandler exceptionHandle;
-  final GuardAbnormalStateBuilder stateBuilder;
+  final GuardAbnormalStateBuilder abnormalStateBuilder;
 }
