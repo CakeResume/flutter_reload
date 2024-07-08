@@ -14,7 +14,7 @@ You can easily integrate flutter_reload with 3 major steps:
 
 1. Initiate configuration for `exception handling` and `abnormal UI builder`.
 
-```
+```dart
 void main() {
   ReloadConfiguration.init(
     abnormalStateBuilder: globalAbnormalStateBuilder,
@@ -68,7 +68,7 @@ void globalExceptionHandle(
 
 2. support reload lifecycle in your (UI) model.
 
-```
+```dart
 class MyViewModel extends GuardViewModel {
   final randomWords = <String>[];
 
@@ -88,7 +88,7 @@ class MyViewModel extends GuardViewModel {
 
 3. use `GuardView()` for your UI.
 
-```
+```dart
 @override
 Widget build(BuildContext context) {
   return GuardView(
