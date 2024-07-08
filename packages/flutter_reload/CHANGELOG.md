@@ -1,3 +1,3 @@
-## 0.0.1
+## 0.0.1 - 2024-07-08
 
-* TODO: Describe initial release.
+- Upload any necessary package files as the first version.

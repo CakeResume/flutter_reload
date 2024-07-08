@@ -72,6 +72,7 @@ mixin GuardViewModelMixin {
   GuardViewController get guardViewController;
   GuardViewModelMixin? get parent;
 
+  @mustCallSuper
   FutureOr<T?> guard<T>(
     DataSupplier<FutureOr<T?>> action, {
     GuardExceptionHandleResult Function(dynamic exception, dynamic stacktrace)?
