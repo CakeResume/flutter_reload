@@ -4,7 +4,7 @@ typedef ExceptionHandler = void Function(
   dynamic exception,
   dynamic stackTrace, {
   required bool silent,
-  GuardViewController? guardViewController,
+  GuardStateController? guardStateController,
   GuardExceptionHandleResult Function(dynamic exception, dynamic stackTrace)?
       onError,
 });

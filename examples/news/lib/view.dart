@@ -24,7 +24,7 @@ class HackNewsListView extends StatelessWidget {
                     : PaginationTriggerWidget(model: model.paginationModel);
               },
               separatorBuilder: (context, index) => const Divider(),
-              itemCount: model.paginationModel.rowCountWithTrigger(),
+              itemCount: model.paginationModel.rowCountWithTrigger,
             );
           },
         );
@@ -36,34 +36,6 @@ class HackNewsListView extends StatelessWidget {
     return ListTile(
       key: ValueKey(news.id),
       title: Text(news.title),
-    );
-  }
-}
-
-class PaginationTriggerWidget extends StatefulWidget {
-  final PaginationModel model;
-
-  PaginationTriggerWidget({required this.model}) : super(key: UniqueKey());
-  @override
-  State<StatefulWidget> createState() {
-    return PaginationTriggerWidgetState();
-  }
-}
-
-class PaginationTriggerWidgetState extends State<PaginationTriggerWidget> {
-  @override
-  void initState() {
-    super.initState();
-    widget.model.nextPage();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 40,
-      child: Center(
-        child: CircularProgressIndicator.adaptive(),
-      ),
     );
   }
 }

@@ -13,7 +13,7 @@ class GuardView extends RawGuardView {
     super.abnormalStateBuilder,
     super.wrapper,
   }) : super(
-            guardViewController: model.guardViewController,
+            guardStateController: model.guardStateController,
             // page_base and model_base are UI-Model pair. should know each other
             // ignore: invalid_use_of_protected_member
             reload: model.reload);
@@ -28,7 +28,7 @@ class GuardView extends RawGuardView {
 }
 
 class RawGuardView extends StatefulWidget {
-  final GuardViewController guardViewController;
+  final GuardStateController guardStateController;
   final DataSupplier<FutureOr<void>> reload;
   final NormalStateBuilder builder;
   final GuardAbnormalStateBuilder? abnormalStateBuilder;
@@ -36,7 +36,7 @@ class RawGuardView extends StatefulWidget {
 
   const RawGuardView({
     super.key,
-    required this.guardViewController,
+    required this.guardStateController,
     required this.reload,
     required this.builder,
     this.abnormalStateBuilder,
@@ -53,24 +53,24 @@ class RawGuardView extends StatefulWidget {
 }
 
 class GuardViewState<T extends RawGuardView> extends State<T> {
-  GuardViewController get guardViewController => widget.guardViewController;
+  GuardStateController get guardStateController => widget.guardStateController;
 
   @override
   void initState() {
     super.initState();
-    guardViewController.addListener(_onStateChanged);
+    guardStateController.addListener(_onStateChanged);
   }
 
   @override
   void didUpdateWidget(covariant T oldWidget) {
     super.didUpdateWidget(oldWidget);
-    oldWidget.guardViewController.removeListener(_onStateChanged);
-    widget.guardViewController.addListener(_onStateChanged);
+    oldWidget.guardStateController.removeListener(_onStateChanged);
+    widget.guardStateController.addListener(_onStateChanged);
   }
 
   @override
   void dispose() {
-    guardViewController.removeListener(_onStateChanged);
+    guardStateController.removeListener(_onStateChanged);
     super.dispose();
   }
 
@@ -81,13 +81,13 @@ class GuardViewState<T extends RawGuardView> extends State<T> {
   @override
   Widget build(BuildContext context) {
     Widget w;
-    if (guardViewController.value.isNormal) {
+    if (guardStateController.value.isNormal) {
       w = widget.builder(context);
     } else {
       w = widget.abnormalStateBuilder
-              ?.call(context, guardViewController.value, widget.reload) ??
+              ?.call(context, guardStateController.value, widget.reload) ??
           RawGuardView.defaultAbnormalStateBuilder(
-              context, guardViewController.value, widget.reload) ??
+              context, guardStateController.value, widget.reload) ??
           const SizedBox();
     }
 

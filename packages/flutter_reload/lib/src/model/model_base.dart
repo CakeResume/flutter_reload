@@ -1,10 +1,20 @@
 part of '../reload.dart';
 
-const _guardViewControllerZonedKey = '_@guardViewControllerZone@_';
+const _guardStateControllerZonedKey = '_@guardStateControllerZone@_';
 
-class GuardViewController extends ValueNotifier<GuardState> {
-  GuardViewController([super.value = const NormalGuardState()]);
+/// GuardStateController class extends ValueNotifier to manage and notify changes in the GuardState.
+///
+/// see also [GuardState]
+class GuardStateController extends ValueNotifier<GuardState> {
+  /// Constructor initializes the GuardStateController with a default state of NormalGuardState.
+  GuardStateController([super.value = const NormalGuardState()]);
 
+  /// Method to wait until the state becomes normal.
+  /// It checks the current state, and if it's not normal,
+  /// it sets up a listener and waits for the state to change to normal.
+  ///
+  /// A timeout of 10 seconds is used to avoid indefinite waiting, throwing a
+  /// [TimeoutException] if the state does not become normal within this period.
   FutureOr<void> waitOnNormalState() async {
     if (!value.isNormal) {
       final completer = Completer();
@@ -43,10 +53,10 @@ abstract class GuardViewModel extends ChangeNotifier
     with GuardViewModelMixin
     implements ViewModel {
   GuardViewModel(GuardState state, {this.parent})
-      : guardViewController = GuardViewController(state);
+      : guardStateController = GuardStateController(state);
 
   @override
-  final GuardViewController guardViewController;
+  final GuardStateController guardStateController;
 
   @override
   final GuardViewModelMixin? parent;
@@ -69,7 +79,7 @@ enum GuardExceptionHandleResult {
 }
 
 mixin GuardViewModelMixin {
-  GuardViewController get guardViewController;
+  GuardStateController get guardStateController;
   GuardViewModelMixin? get parent;
 
   @mustCallSuper
@@ -78,7 +88,7 @@ mixin GuardViewModelMixin {
     GuardExceptionHandleResult Function(dynamic exception, dynamic stacktrace)?
         onError,
   }) async {
-    if (Zone.current[_guardViewControllerZonedKey] != null) {
+    if (Zone.current[_guardStateControllerZonedKey] != null) {
       try {
         return await action();
       } catch (ex, st) {
@@ -102,21 +112,21 @@ mixin GuardViewModelMixin {
               ex,
               st,
               silent: parent != null,
-              guardViewController:
-                  parent?.guardViewController ?? guardViewController,
+              guardStateController:
+                  parent?.guardStateController ?? guardStateController,
               onError: onError,
             );
             return null;
           }
         },
-        zoneValues: {_guardViewControllerZonedKey: guardViewController},
+        zoneValues: {_guardStateControllerZonedKey: guardStateController},
         (Object ex, StackTrace st) async {
           ReloadConfiguration.instance.exceptionHandle(
             ex,
             st,
             silent: parent != null,
-            guardViewController:
-                parent?.guardViewController ?? guardViewController,
+            guardStateController:
+                parent?.guardStateController ?? guardStateController,
             onError: onError,
           );
         },

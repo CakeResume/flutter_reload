@@ -95,18 +95,18 @@ Widget? globalAbnormalStateBuilder(BuildContext context, GuardState guardState,
 void globalExceptionHandle(
   exception,
   stackTrace, {
-  GuardViewController? guardViewController,
+  GuardStateController? guardStateController,
   GuardExceptionHandleResult Function(dynamic, dynamic)? onError,
   required bool silent,
 }) {
   final errorHandlerResult = onError?.call(exception, stackTrace) ??
       GuardExceptionHandleResult.byDefault;
 
-  if (guardViewController != null &&
-      guardViewController.value is InitGuardState) {
+  if (guardStateController != null &&
+      guardStateController.value is InitGuardState) {
     
     // TODO: log unexpected error here
-    guardViewController.value = ErrorGuardState<Exception>(cause: exception);
+    guardStateController.value = ErrorGuardState<Exception>(cause: exception);
   } else {
     if (errorHandlerResult == GuardExceptionHandleResult.mute) {
       return;
@@ -130,9 +130,9 @@ class MyViewModel extends GuardViewModel {
   @override
   FutureOr<void> reload() async {
     await guard(() async {
-      guardViewController.value = GuardState.init;
+      guardStateController.value = GuardState.init;
       randomWords..clear()..addAll(await myNetworkService.getRandomWordsFromServer());
-      guardViewController.value = GuardState.normal;
+      guardStateController.value = GuardState.normal;
       notifyListeners();
     });
   }

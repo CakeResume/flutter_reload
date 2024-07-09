@@ -10,7 +10,7 @@ BuildContext? rootContext;
 void globalExceptionHandle(
   exception,
   stackTrace, {
-  GuardViewController? guardViewController,
+  GuardStateController? guardStateController,
   GuardExceptionHandleResult Function(dynamic, dynamic)? onError,
   required bool silent,
 }) {
@@ -18,19 +18,19 @@ void globalExceptionHandle(
   final errorHandlerResult = onError?.call(exception, stackTrace) ??
       GuardExceptionHandleResult.byDefault;
 
-  if (guardViewController != null &&
-      guardViewController.value is InitGuardState) {
+  if (guardStateController != null &&
+      guardStateController.value is InitGuardState) {
     if (exception is CustomException) {
       if (exception.isOffline) {
-        guardViewController.value = GuardState.offline;
+        guardStateController.value = GuardState.offline;
       } else {
         // TODO: log unexpected error here
-        guardViewController.value =
+        guardStateController.value =
             ErrorGuardState<CustomException>(cause: exception);
       }
     } else {
       // TODO: log unexpected error here
-      guardViewController.value = ErrorGuardState<Exception>(cause: exception);
+      guardStateController.value = ErrorGuardState<Exception>(cause: exception);
     }
   } else {
     if (errorHandlerResult == GuardExceptionHandleResult.mute) {
