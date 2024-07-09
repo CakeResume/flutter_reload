@@ -9,6 +9,12 @@ In the case of using networking APIs, there is always a need for a “when” co
 
 This is a simple concept of what `flutter_reload` is and what it serves.
 
+*flutter_reload architecture*
+![Architecture](resources/layer_design.png)
+
+*flutter_reload lifecycle*
+![Architecture](resources/lifecycle.png)
+
 ## Install
 You can easily integrate flutter_reload with 3 major steps:
 
