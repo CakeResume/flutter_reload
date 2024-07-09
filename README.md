@@ -61,7 +61,9 @@ Future<void> createTodo(Todo todo) {
 ```
 
 ## Install
-You can easily integrate flutter_reload with 3 major steps:
+Follow the [pub.dev's install site](https://pub.dev/packages/flutter_reload/install) to install this package.
+
+After the installation, you can easily integrate flutter_reload with three major steps:
 
 1. Initiate configuration for `exception handling` and `abnormal UI builder`.
 
