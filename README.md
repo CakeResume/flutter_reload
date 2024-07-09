@@ -3,17 +3,62 @@ Simplifies error handling by managing low-level errors, allowing developers to f
 
 ## Why use `flutter_reload`
 We love and usually choose one of many state management mechanisms as our base architecture.
-In the case of using networking APIs, there is always a need for a “when” condition to handle exceptions in each view.
+In many cases, such as using networking APIs, there is always a need for a “when” condition to handle exceptions in each view.
 
-`flutter_reload` tries to create a lightweight layer to handle all common cases, so we don’t need to manage each exception case for every user action or view (page) loading.
+`Flutter_reload` tries to create a lightweight layer to handle all common error cases.
+With an additional protection `guard`, we don’t need to manage each abnormal case for each UI and model anymore,
+e.g. network error, storage error, programming exception.
+We call such enjoyable development experience as `without exception awareness`. :D :)
 
-This is a simple concept of what `flutter_reload` is and what it serves.
+*Concept with exception awareness in UI*
+```dart
+Widget build(BuildContext context) {
+  switch (result) {
+    case loading:
+      return Text('Loading view data...');
+    case error:
+      return Text('Load data failed.');
+    case data(data):
+      return Text('Yes!! Here is the $data!!');
+  }
+}
+```
 
-*flutter_reload architecture*
-![Architecture](resources/layer_design.png)
+*Concept without exception awareness in UI*
+```dart
+Widget build(BuildContext context) {
+  return GuardView(
+    builder: (context) {
+      return Text('Yes!! Here is the ${result.data}!!');
+    }
+  )
+}
+```
 
-*flutter_reload lifecycle*
-![Architecture](resources/lifecycle.png)
+*Concept with exception awareness in Model*
+```dart
+Future<void> createTodo(Todo todo) {
+  try {
+    state = Result.loading();
+    final data = await todoService.createTodo();
+    state = Result.success(Todo.fromJson(data));
+  } catch (ex) {
+    if (ex is NetworkException) {
+      state = Result.error(ex);
+    } else if ...
+  }
+}
+```
+
+*Concept without exception awareness in Model*
+```dart
+Future<void> createTodo(Todo todo) {
+  await guard(() {
+    final data = await todoService.createTodo();
+    state = Result.success(Todo.fromJson(data));
+  });
+}
+```
 
 ## Install
 You can easily integrate flutter_reload with 3 major steps:
@@ -120,3 +165,9 @@ Widget build(BuildContext context) {
   );
 }
 ```
+
+## Architecture
+![Architecture](resources/layer_design.png)
+
+## Lifecycle
+![Architecture](resources/lifecycle.png)
