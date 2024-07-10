@@ -14,7 +14,6 @@ class HackNewsListView extends ConsumerWidget {
     return GuardView(
       model: model,
       builder: (context) {
-        print('test...');
         return ListView.separated(
           itemBuilder: (BuildContext context, int index) {
             final rowData = model.paginationModel.getData(index);

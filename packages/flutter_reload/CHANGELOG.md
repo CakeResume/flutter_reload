@@ -1,3 +1,7 @@
+## 0.0.3 - 2024-07-10
+
+- Support both ChangeNotifier and Riverpod code examples.
+
 ## 0.0.2 - 2024-07-09
 
 - Introducing PaginationModel.
