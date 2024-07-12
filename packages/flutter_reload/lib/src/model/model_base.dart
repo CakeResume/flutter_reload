@@ -2,12 +2,8 @@ part of '../reload.dart';
 
 const _guardStateControllerZonedKey = '_@guardStateControllerZone@_';
 
-/// GuardStateController class extends ValueNotifier to manage and notify changes in the GuardState.
-///
-/// see also [GuardState]
-class GuardStateController extends ValueNotifier<GuardState> {
-  /// Constructor initializes the GuardStateController with a default state of NormalGuardState.
-  GuardStateController([super.value = const NormalGuardState()]);
+abstract class GuardStateListenable extends ValueListenable<GuardState> {
+  const GuardStateListenable();
 
   /// Method to wait until the state becomes normal.
   /// It checks the current state, and if it's not normal,
@@ -15,6 +11,18 @@ class GuardStateController extends ValueNotifier<GuardState> {
   ///
   /// A timeout of 10 seconds is used to avoid indefinite waiting, throwing a
   /// [TimeoutException] if the state does not become normal within this period.
+  FutureOr<void> waitOnNormalState();
+}
+
+/// GuardStateController class extends ValueNotifier to manage and notify changes in the GuardState.
+///
+/// see also [GuardState]
+class GuardStateController extends ValueNotifier<GuardState>
+    implements GuardStateListenable {
+  /// Constructor initializes the GuardStateController with a default state of NormalGuardState.
+  GuardStateController([super.value = const NormalGuardState()]);
+
+  @override
   FutureOr<void> waitOnNormalState() async {
     if (!value.isNormal) {
       final completer = Completer();
@@ -53,19 +61,19 @@ abstract class GuardViewModel extends ChangeNotifier
     with GuardViewModelMixin
     implements ViewModel {
   GuardViewModel(GuardState state, {this.parent})
-      : guardStateController = GuardStateController(state);
+      : _guardStateController = GuardStateController(state);
 
   @override
-  final GuardStateController guardStateController;
+  final GuardStateController _guardStateController;
+
+  @override
+  GuardState get guardState => _guardStateController.value;
+
+  @override
+  GuardStateListenable get guardStateListenable => _guardStateController;
 
   @override
   final GuardViewModelMixin? parent;
-}
-
-abstract class GuardViewEventModel<T> extends GuardViewModel
-    with EventNotifier<T> //only for fit Riverpod's dispose lifecycle
-{
-  GuardViewEventModel(super.state, {super.parent});
 }
 
 enum GuardExceptionHandleResult {
@@ -78,12 +86,49 @@ enum GuardExceptionHandleResult {
   bool get shouldHandleOffline => this == byDefault;
 }
 
+typedef GuardRawAction<T> = FutureOr<T?> Function(
+    GuardStateController guardStateController);
+
 mixin GuardViewModelMixin {
-  GuardStateController get guardStateController;
+  GuardStateController get _guardStateController;
+  GuardState get guardState;
+  GuardStateListenable get guardStateListenable;
   GuardViewModelMixin? get parent;
 
   @mustCallSuper
   FutureOr<T?> guard<T>(
+    DataSupplier<FutureOr<T?>> action, {
+    GuardExceptionHandleResult Function(dynamic exception, dynamic stacktrace)?
+        onError,
+  }) {
+    return _guard<T>(action, onError: onError);
+  }
+
+  @mustCallSuper
+  FutureOr<T?> guardReload<T>(
+    DataSupplier<FutureOr<T?>> action, {
+    GuardExceptionHandleResult Function(dynamic exception, dynamic stacktrace)?
+        onError,
+  }) {
+    return _guard<T>(() async {
+      _guardStateController.value = GuardState.init;
+      final result = await action();
+      _guardStateController.value = GuardState.normal;
+      return result;
+    }, onError: onError);
+  }
+
+  @mustCallSuper
+  FutureOr<T?> guardRaw<T>(
+    GuardRawAction<T> action, {
+    GuardExceptionHandleResult Function(dynamic exception, dynamic stacktrace)?
+        onError,
+  }) {
+    return _guard<T>(() => action(_guardStateController), onError: onError);
+  }
+
+  @mustCallSuper
+  FutureOr<T?> _guard<T>(
     DataSupplier<FutureOr<T?>> action, {
     GuardExceptionHandleResult Function(dynamic exception, dynamic stacktrace)?
         onError,
@@ -113,20 +158,20 @@ mixin GuardViewModelMixin {
               st,
               silent: parent != null,
               guardStateController:
-                  parent?.guardStateController ?? guardStateController,
+                  parent?._guardStateController ?? _guardStateController,
               onError: onError,
             );
             return null;
           }
         },
-        zoneValues: {_guardStateControllerZonedKey: guardStateController},
+        zoneValues: {_guardStateControllerZonedKey: _guardStateController},
         (Object ex, StackTrace st) async {
           ReloadConfiguration.instance.exceptionHandle(
             ex,
             st,
             silent: parent != null,
             guardStateController:
-                parent?.guardStateController ?? guardStateController,
+                parent?._guardStateController ?? _guardStateController,
             onError: onError,
           );
         },

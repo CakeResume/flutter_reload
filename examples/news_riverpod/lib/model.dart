@@ -17,15 +17,14 @@ class HackNewsViewModel extends GuardViewModel
 
   HackNewsViewModel() : super(GuardState.init) {
     paginationModel = PaginationModel(
-      guardStateController: guardStateController,
+      guardStateSupplier: () => guardState,
       onNextPage: fetchNextPage,
     );
   }
 
   @override
   FutureOr<void> reload() async {
-    guardStateController.value = GuardState.init;
-    await guard(() async {
+    await guardReload(() async {
       final paging = _pageToStartEnd(PaginationModel.firstPage);
       final res = await newsService.getNews(
         start: paging.start,
@@ -37,7 +36,6 @@ class HackNewsViewModel extends GuardViewModel
         lastPage: PaginationModel.infinityPage,
         data: res,
       );
-      guardStateController.value = GuardState.normal;
       notifyListeners();
     });
   }

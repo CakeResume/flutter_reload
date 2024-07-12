@@ -129,10 +129,8 @@ class MyViewModel extends GuardViewModel {
 
   @override
   FutureOr<void> reload() async {
-    await guard(() async {
-      guardStateController.value = GuardState.init;
+    await guardReload(() async {
       randomWords..clear()..addAll(await myNetworkService.getRandomWordsFromServer());
-      guardStateController.value = GuardState.normal;
       notifyListeners();
     });
   }

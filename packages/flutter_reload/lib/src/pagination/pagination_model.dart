@@ -10,13 +10,14 @@ mixin PaginationViewMixin<T> on GuardViewModelMixin {
 typedef OnNextPage<T> = FutureOr<({int page, List<T> data})?> Function(
     int nextPage);
 typedef AllowNextPage = bool Function();
+typedef GuardStateSupplier = GuardState Function();
 
 class PaginationModel<T> {
   static const firstPage = 1;
   static const infinityPage = (1 << 63) - 1;
 
   final _list = <T>[];
-  final GuardStateController guardStateController;
+  final GuardStateSupplier guardStateSupplier;
   final OnNextPage<T> onNextPage;
   final AllowNextPage? allowNextPage;
   int get currentPage => _currentPage;
@@ -26,7 +27,7 @@ class PaginationModel<T> {
   int? _count;
 
   PaginationModel({
-    required this.guardStateController,
+    required this.guardStateSupplier,
     required this.onNextPage,
     this.allowNextPage,
   });
@@ -48,7 +49,7 @@ class PaginationModel<T> {
   }
 
   void nextPage() async {
-    if (guardStateController.value == GuardState.init) return;
+    if (guardStateSupplier() == GuardState.init) return;
 
     final oldPage = _currentPage;
     final pagingData = await onNextPage(++_currentPage);

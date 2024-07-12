@@ -1,6 +1,7 @@
 part of '../reload.dart';
 
 typedef DataSupplier<T> = T Function();
+typedef DataConverter<R, T> = R Function(T data);
 typedef EventListener<T> = void Function(T event);
 typedef EventAction = void Function();
 
@@ -22,25 +23,6 @@ abstract class NotifierBase<E> {
   void removeEventListener(E listener) {
     assert(listeners.contains(listener));
     listeners.remove(listener);
-  }
-}
-
-mixin EventNotifier<T> {
-  final _eventListeners = <EventListener<T>>[];
-  void addEventListener(EventListener<T> listener) {
-    assert(!_eventListeners.contains(listener));
-    _eventListeners.add(listener);
-  }
-
-  void removeEventListener(EventListener<T> listener) {
-    assert(_eventListeners.contains(listener));
-    _eventListeners.remove(listener);
-  }
-
-  void notifyEvent(T t) {
-    for (final listener in _eventListeners) {
-      listener(t);
-    }
   }
 }
 

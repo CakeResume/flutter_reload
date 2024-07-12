@@ -13,9 +13,7 @@ class GuardView extends RawGuardView {
     super.abnormalStateBuilder,
     super.wrapper,
   }) : super(
-            guardStateController: model.guardStateController,
-            // page_base and model_base are UI-Model pair. should know each other
-            // ignore: invalid_use_of_protected_member
+            guardStateController: model._guardStateController,
             reload: model.reload);
 
   @override
