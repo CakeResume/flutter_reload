@@ -1,3 +1,7 @@
+## 0.0.5 - 2024-07-17
+
+- Support configurable timeout duration for `waitOnNormalState()`
+
 ## 0.0.4 - 2024-07-13
 
 - [Breaking Change] introduce guard(), guardReload() and guardRaw() to simplify the flow

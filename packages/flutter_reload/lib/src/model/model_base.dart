@@ -23,7 +23,7 @@ class GuardStateController extends ValueNotifier<GuardState>
   GuardStateController([super.value = const NormalGuardState()]);
 
   @override
-  FutureOr<void> waitOnNormalState() async {
+  FutureOr<void> waitOnNormalState({int timeoutSeconds = 10}) async {
     if (!value.isNormal) {
       final completer = Completer();
       void onChange() {
@@ -33,7 +33,7 @@ class GuardStateController extends ValueNotifier<GuardState>
       }
 
       addListener(onChange);
-      Future.delayed(const Duration(seconds: 10)).whenComplete(() {
+      Future.delayed(Duration(seconds: timeoutSeconds)).whenComplete(() {
         if (!completer.isCompleted) {
           completer.completeError(
               TimeoutException('Failed to wait for normal state.'));
