@@ -1,3 +1,7 @@
+## 0.0.6 - 2024-07-17
+
+- Support configurable timeout duration for `waitOnNormalState()` in interface
+
 ## 0.0.5 - 2024-07-17
 
 - Support configurable timeout duration for `waitOnNormalState()`

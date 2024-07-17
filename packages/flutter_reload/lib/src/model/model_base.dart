@@ -11,7 +11,7 @@ abstract class GuardStateListenable extends ValueListenable<GuardState> {
   ///
   /// A timeout of 10 seconds is used to avoid indefinite waiting, throwing a
   /// [TimeoutException] if the state does not become normal within this period.
-  FutureOr<void> waitOnNormalState();
+  FutureOr<void> waitOnNormalState({int timeoutSeconds = 10});
 }
 
 /// GuardStateController class extends ValueNotifier to manage and notify changes in the GuardState.
