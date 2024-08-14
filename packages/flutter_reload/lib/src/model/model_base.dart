@@ -2,6 +2,7 @@ part of '../reload.dart';
 
 const _guardStateControllerZonedKey = '_@guardStateControllerZone@_';
 
+/// An interface to define the listenable state for guard state changes.
 abstract class GuardStateListenable extends ValueListenable<GuardState> {
   const GuardStateListenable();
 
@@ -47,6 +48,24 @@ class GuardStateController extends ValueNotifier<GuardState>
 }
 
 abstract class ViewModel implements Listenable {
+  /// The subclass should implement this method to handle the reload concept.
+  /// This concept is used to represent a data reload action.
+  ///
+  /// You can think of this method as similar to initially loading all necessary data,
+  /// followed by multiple update operations due to user interactions.
+  ///
+  /// For example, in a chat application, you might load the initial page of recent
+  /// chat history when opening a chat view.
+  /// After the user sends or receives a new message, this chat record is added
+  /// to the model.
+  ///
+  /// The [reload] lifecycle is useful for defining a clear structure:
+  /// 1. Initializing data. (This is where the [reload] action occurs.)
+  /// 2. Performing all subsequent operations that update the local data and
+  ///    sync it with the online server.
+  /// If unexpected cases cause the data to become out of sync, we can simply
+  /// call [reload] with an optional state (e.g., chat keyword search)
+  /// to reload the entire model's data.
   @protected
   FutureOr<void> reload();
 
@@ -76,11 +95,14 @@ abstract class GuardViewModel extends ChangeNotifier
   final GuardViewModelMixin? parent;
 }
 
+/// This enum defines the possible results when intercepting a guard exception.
+/// See more details in the [onError] function of [guardReload] and [guard].
 enum GuardExceptionHandleResult {
-  // [Guard] will handle it through default behavior.
+  // Use the default behavior after interception.
   byDefault,
-  // [Guard] won't handle it. So mute the default behavior.
+  // Ignore the rest of the default behavior.
   mute,
+  // Ignore the rest of the default behavior only for offline errors.
   muteOnlyForOffline;
 
   bool get shouldHandleOffline => this == byDefault;
@@ -89,12 +111,27 @@ enum GuardExceptionHandleResult {
 typedef GuardRawAction<T> = FutureOr<T?> Function(
     GuardStateController guardStateController);
 
+/// The mixin is used to integrate the model with `guard` protection.
+///
+/// You can customize a guard-based UI model with any state management.
+/// Subclass should call [guardReload] inside [reload] method
+/// or call [guard] in any model action that will trigger the side effect.
+///
+/// With [guardRaw], you have the ability to control the guard state manually.
+///
+/// [guardReload]: Executes with a change in [guardState].
+/// [guard]: Executes without a change in [guardState].
+/// [guardRaw]: Executes with a [guardState] controller.
 mixin GuardViewModelMixin {
   GuardStateController get _guardStateController;
   GuardState get guardState;
   GuardStateListenable get guardStateListenable;
   GuardViewModelMixin? get parent;
 
+  /// Executes with the exception protection only.
+  ///
+  /// See [guardReload] if you want to execute action with auto state change.
+  /// See [guardRaw] for exception protection with manual state control.
   @mustCallSuper
   FutureOr<T?> guard<T>(
     DataSupplier<FutureOr<T?>> action, {
@@ -104,6 +141,12 @@ mixin GuardViewModelMixin {
     return _guard<T>(action, onError: onError);
   }
 
+  /// Executes with a change in [guardState].
+  /// Before the [action], [guardState] will be changed to [GuardState.init],
+  /// and will finally change to [GuardState.normal] when the [action] is done.
+  ///
+  /// See [guard] for exception protection only.
+  /// See [guardRaw] for exception protection with manual state control.
   @mustCallSuper
   FutureOr<T?> guardReload<T>(
     DataSupplier<FutureOr<T?>> action, {
@@ -118,6 +161,8 @@ mixin GuardViewModelMixin {
     }, onError: onError);
   }
 
+  /// The [action] will provide a [GuardStateController] that can be
+  /// manually controlled by the callee.
   @mustCallSuper
   FutureOr<T?> guardRaw<T>(
     GuardRawAction<T> action, {
@@ -127,6 +172,7 @@ mixin GuardViewModelMixin {
     return _guard<T>(() => action(_guardStateController), onError: onError);
   }
 
+  /// Internal use only.
   @mustCallSuper
   FutureOr<T?> _guard<T>(
     DataSupplier<FutureOr<T?>> action, {
@@ -181,8 +227,7 @@ mixin GuardViewModelMixin {
     }
   }
 
-  bool get supportReload => true;
-
+  /// see [ViewModel.reload]
   @protected
   FutureOr<void> reload();
 
@@ -190,6 +235,7 @@ mixin GuardViewModelMixin {
   var _inited = false;
   var _disposed = false;
 
+  /// see [ViewModel.init]
   @mustCallSuper
   void init() {
     assert(() {
@@ -199,6 +245,7 @@ mixin GuardViewModelMixin {
     }(), 'init should be called only once.');
   }
 
+  /// see [ViewModel.dispose]
   @mustCallSuper
   void dispose() {
     assert(() {
