@@ -227,10 +227,6 @@ mixin GuardViewModelMixin {
     }
   }
 
-  /// see [ViewModel.reload]
-  @protected
-  FutureOr<void> reload();
-
   bool get inited => _inited;
   var _inited = false;
   var _disposed = false;

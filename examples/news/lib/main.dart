@@ -5,6 +5,8 @@ import 'package:news/util.dart';
 import 'package:news/view.dart';
 
 void main() {
+  /// must call [ReloadConfiguration.init] to setup
+  /// exception handler and abnormal state's UI
   ReloadConfiguration.init(
     abnormalStateBuilder: globalAbnormalStateBuilder,
     exceptionHandle: globalExceptionHandle,
