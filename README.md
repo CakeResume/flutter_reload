@@ -175,3 +175,19 @@ Widget build(BuildContext context) {
 
 ## Lifecycle
 ![Architecture](resources/lifecycle.png)
+
+## LLM friendly framework
+1. Merge all Dart files (core + example) into a single context (e.g., in a Mac environment):
+```
+find . -name "*.dart" -type f -not -path "./examples/news_riverpod/*" -print0 | xargs -0 cat > ~/Downloads/flutter_reload_source
+```
+
+2. Add the context to your LLM reference alongside your requirements:
+```
+[FLUTTER_RELAOD_SOURCE]
+
+help to to write a todo list app with flutter_reload. you will implement following requirements:
+
+1. TODO CRUD operations for model and UI.
+2. support persistence to save the model's todos
+```
