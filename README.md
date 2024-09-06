@@ -169,6 +169,7 @@ Widget build(BuildContext context) {
 ## Example
 1. [news](https://github.com/CakeResume/flutter_reload/tree/master/examples/news): A HackNews demo with Flutter ChangeNotifier as state management
 2. [news_riverpod](https://github.com/CakeResume/flutter_reload/tree/master/examples/news_riverpod): A HackNews demo with Riverpod as state management
+3. [Todo](https://github.com/CakeResume/flutter_reload/tree/master/examples/news): A common Todo App demo with Flutter ChangeNotifier as state management
 
 ## Architecture
 ![Architecture](resources/layer_design.png)
