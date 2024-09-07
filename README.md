@@ -180,8 +180,9 @@ Widget build(BuildContext context) {
 ## LLM friendly framework
 1. Merge all Dart files (core + example) into a single context (e.g., in a Mac environment):
 ```
-find . -name "*.dart" -type f -not -path "./examples/news_riverpod/*" -print0 | xargs -0 cat > ~/Downloads/flutter_reload_source
+find ./packages/flutter_reload ./examples/news -name "*.dart" -print0 | xargs -0 cat > ~/Downloads/flutter_reload_source
 ```
+BTW, you can add whatever examples you want instead of `./examples/news`
 
 2. Add the context to your LLM reference alongside your requirements:
 ```

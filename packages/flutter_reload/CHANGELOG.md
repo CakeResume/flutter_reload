@@ -1,3 +1,7 @@
+## 0.0.7 - 2024-09-07
+
+- Remove reload lifecycle for GuardViewModelMixin to increase compatibility with other state management.
+
 ## 0.0.6 - 2024-07-17
 
 - Support configurable timeout duration for `waitOnNormalState()` in interface
