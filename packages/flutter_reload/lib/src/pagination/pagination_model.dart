@@ -63,12 +63,12 @@ class PaginationModel<T> {
   }
 
   T? getData(int index) {
-    return index < _listCount ? _list[index] : null;
+    return index < listCount ? _list[index] : null;
   }
 
   int get rowCountWithTrigger {
-    return _listCount + (hasNextPage ? 1 : 0);
+    return listCount + (hasNextPage ? 1 : 0);
   }
 
-  int get _listCount => _count ?? (_count = _list.length);
+  int get listCount => _count ?? (_count = _list.length);
 }
