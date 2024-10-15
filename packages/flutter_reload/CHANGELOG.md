@@ -1,3 +1,7 @@
+## 0.0.8 - 2024-10-15
+
+- Support get readonly data for the private list content of [PaginationModel].
+
 ## 0.0.7 - 2024-09-07
 
 - Remove reload lifecycle for GuardViewModelMixin to increase compatibility with other state management.

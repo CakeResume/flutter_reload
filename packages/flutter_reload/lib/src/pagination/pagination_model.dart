@@ -17,6 +17,7 @@ class PaginationModel<T> {
   static const infinityPage = (1 << 63) - 1;
 
   final _list = <T>[];
+  UnmodifiableListView<T> get list => UnmodifiableListView<T>(_list);
   final GuardStateSupplier guardStateSupplier;
   final OnNextPage<T> onNextPage;
   final AllowNextPage? allowNextPage;
