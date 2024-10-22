@@ -1,3 +1,7 @@
+## 0.0.9 - 2024-10-22
+
+- Fix index fetch error when retrieving data using a negative index from [PaginationModel].
+
 ## 0.0.8 - 2024-10-15
 
 - Support get readonly data for the private list content of [PaginationModel].

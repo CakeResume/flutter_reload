@@ -64,7 +64,7 @@ class PaginationModel<T> {
   }
 
   T? getData(int index) {
-    return index < listCount ? _list[index] : null;
+    return index >= 0 && index < listCount ? _list[index] : null;
   }
 
   int get rowCountWithTrigger {
