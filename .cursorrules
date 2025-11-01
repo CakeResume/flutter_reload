@@ -1,0 +1,926 @@
+# Flutter Reload Package - Cursor AI Rules
+
+## Package Overview
+
+`flutter_reload` is a lightweight error handling layer for Flutter that enables "without exception awareness" development. It manages low-level errors automatically, allowing developers to focus solely on business logic without repetitive try-catch blocks and error state management in every view and model.
+
+**Core Philosophy**: Separate error handling from business logic through a guard-based protection mechanism.
+
+## Core Concepts
+
+### 1. Without Exception Awareness
+
+Instead of handling loading/error/success states manually in every widget and model:
+
+**Traditional Approach (WITH exception awareness)**:
+```dart
+// In Model
+Future<void> fetchData() {
+  try {
+    state = Result.loading();
+    final data = await service.getData();
+    state = Result.success(data);
+  } catch (ex) {
+    if (ex is NetworkException) {
+      state = Result.error(ex);
+    } else if ...
+  }
+}
+
+// In UI
+Widget build(BuildContext context) {
+  switch (result) {
+    case loading:
+      return Text('Loading...');
+    case error:
+      return Text('Error!');
+    case data(data):
+      return Text('Data: $data');
+  }
+}
+```
+
+**Flutter Reload Approach (WITHOUT exception awareness)**:
+```dart
+// In Model
+Future<void> fetchData() {
+  await guardReload(() async {
+    final data = await service.getData();
+    state = data;
+  });
+}
+
+// In UI
+Widget build(BuildContext context) {
+  return GuardView(
+    model: myViewModel,
+    builder: (context) {
+      return Text('Data: ${myViewModel.state}');
+    }
+  );
+}
+```
+
+### 2. Guard State Machine
+
+`GuardState` represents the current state of a view/model:
+
+- **BeforeInitGuardState**: Not yet initialized
+- **InitGuardState**: Loading initial data (shows loading UI)
+- **NormalGuardState**: Data loaded successfully (shows content UI)
+- **OfflineGuardState**: Network connectivity issue (shows offline UI)
+- **ErrorGuardState<T>**: Error occurred with typed exception (shows error UI)
+
+State transitions:
+```
+BeforeInit → Init → Normal (success)
+                 ↓
+                 Error/Offline (failure)
+```
+
+## Architecture Components
+
+### GuardViewModel
+
+Base class for models that need guard protection. Extends `ChangeNotifier` and includes `GuardViewModelMixin`.
+
+**Key Methods**:
+- `guardReload()`: Execute action with state transitions (Init → Normal)
+- `guard()`: Execute action with exception protection only (no state change)
+- `guardRaw()`: Execute action with manual state control
+- `reload()`: Abstract method to implement data loading logic
+
+**Example**:
+```dart
+class MyViewModel extends GuardViewModel {
+  final _items = <Item>[];
+  List<Item> get items => _items;
+
+  MyViewModel() : super(GuardState.init);
+
+  @override
+  FutureOr<void> reload() async {
+    await guardReload(() async {
+      // This automatically:
+      // 1. Sets state to Init (loading)
+      // 2. Executes your code
+      // 3. Sets state to Normal (success)
+      // 4. Catches exceptions and sets Error/Offline state
+      _items.clear();
+      _items.addAll(await myService.fetchItems());
+      notifyListeners();
+    });
+  }
+
+  void addItem(Item item) {
+    guard(() {
+      // This provides exception protection without changing guard state
+      _items.add(item);
+      myService.saveItem(item);
+      notifyListeners();
+    });
+  }
+}
+```
+
+### GuardView
+
+Widget that automatically handles abnormal states (loading, error, offline) and only shows content when in normal state.
+
+**Parameters**:
+- `model`: The GuardViewModel instance
+- `builder`: Content builder (only called when state is Normal)
+- `abnormalStateBuilder`: Optional custom abnormal state UI
+- `wrapper`: Optional widget wrapper
+
+**Example**:
+```dart
+GuardView(
+  model: myViewModel,
+  builder: (context) {
+    // This only renders when guardState is Normal
+    return ListView.builder(
+      itemCount: myViewModel.items.length,
+      itemBuilder: (context, index) {
+        return ListTile(title: Text(myViewModel.items[index].name));
+      },
+    );
+  },
+)
+```
+
+### ListenableWidget
+
+Efficient widget that rebuilds only when the model notifies listeners. Use this inside `GuardView.builder` to listen to model changes.
+
+**Example**:
+```dart
+GuardView(
+  model: myViewModel,
+  builder: (context) {
+    return ListenableWidget(
+      model: myViewModel,
+      builder: (context) {
+        // Rebuilds when myViewModel.notifyListeners() is called
+        return Text('Count: ${myViewModel.count}');
+      },
+    );
+  },
+)
+```
+
+**Advanced - Multiple Listeners**:
+```dart
+ListenableWidget.models(
+  models: [viewModel1, viewModel2],
+  builder: (context) {
+    return Text('${viewModel1.data} - ${viewModel2.data}');
+  },
+)
+```
+
+**Advanced - Conditional Rebuild**:
+```dart
+ListenableWidget(
+  model: myViewModel,
+  observer: () => myViewModel.specificProperty,
+  builder: (context) {
+    // Only rebuilds when specificProperty changes
+    return Text(myViewModel.specificProperty);
+  },
+)
+```
+
+### ReloadConfiguration
+
+Global configuration that must be initialized before `runApp()`. Defines how exceptions are handled and how abnormal states are displayed.
+
+**Required Parameters**:
+- `exceptionHandle`: Global exception handler function
+- `abnormalStateBuilder`: Global abnormal state UI builder
+
+## Implementation Guide
+
+### Step 1: Initialize Configuration in main()
+
+```dart
+void main() {
+  ReloadConfiguration.init(
+    exceptionHandle: globalExceptionHandle,
+    abnormalStateBuilder: globalAbnormalStateBuilder,
+  );
+  runApp(const MyApp());
+}
+
+// Global exception handler
+void globalExceptionHandle(
+  dynamic exception,
+  dynamic stackTrace, {
+  GuardStateController? guardStateController,
+  GuardExceptionHandleResult Function(dynamic, dynamic)? onError,
+  required bool silent,
+}) {
+  // Convert to custom exception if needed
+  exception = toCustomException(exception, stackTrace) ?? exception;
+  
+  // Call onError callback if provided
+  final errorHandlerResult = onError?.call(exception, stackTrace) 
+      ?? GuardExceptionHandleResult.byDefault;
+
+  // Handle based on current state
+  if (guardStateController != null && 
+      guardStateController.value is InitGuardState) {
+    // During initial load - update guard state
+    if (exception is CustomException && exception.isOffline) {
+      guardStateController.value = GuardState.offline;
+    } else {
+      guardStateController.value = ErrorGuardState<Exception>(cause: exception);
+    }
+  } else {
+    // During normal operation - show snackbar/toast
+    if (errorHandlerResult == GuardExceptionHandleResult.mute) {
+      return; // Silently ignore
+    }
+    ScaffoldMessenger.of(rootContext!)
+        .showSnackBar(SnackBar(content: Text('$exception')));
+  }
+}
+
+// Global abnormal state UI builder
+Widget? globalAbnormalStateBuilder(
+  BuildContext context,
+  GuardState guardState,
+  DataSupplier<FutureOr<void>> dataReloader,
+) {
+  switch (guardState) {
+    case InitGuardState():
+      return const Center(child: CircularProgressIndicator.adaptive());
+    case OfflineGuardState():
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Offline...'),
+            ElevatedButton(
+              onPressed: dataReloader,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    case ErrorGuardState<CustomException>(cause: CustomException cause):
+      return Center(child: Text('Error: ${cause.message}'));
+    case ErrorGuardState<Exception>(cause: var cause):
+      return Center(child: Text('Error: $cause'));
+    default:
+      return null; // Return null to use default behavior
+  }
+}
+```
+
+### Step 2: Create ViewModel with GuardViewModel
+
+```dart
+class TodoViewModel extends GuardViewModel {
+  final _todos = <Todo>[];
+  List<Todo> get todos => _todos;
+
+  // Initialize with Init state (will show loading UI)
+  TodoViewModel() : super(GuardState.init);
+
+  @override
+  FutureOr<void> reload() async {
+    // Use guardReload for initial data loading
+    await guardReload(() async {
+      // Simulate API call
+      await Future.delayed(const Duration(seconds: 1));
+      _todos.clear();
+      _todos.addAll(await todoService.fetchTodos());
+      notifyListeners();
+    });
+  }
+
+  void addTodo(String title) {
+    // Use guard for user actions (no state change)
+    guard(() {
+      final newTodo = Todo(id: generateId(), title: title);
+      _todos.add(newTodo);
+      todoService.saveTodo(newTodo);
+      notifyListeners();
+    });
+  }
+
+  void toggleTodo(String id) {
+    guard(() {
+      final index = _todos.indexWhere((todo) => todo.id == id);
+      if (index != -1) {
+        _todos[index] = _todos[index].copyWith(
+          completed: !_todos[index].completed
+        );
+        todoService.updateTodo(_todos[index]);
+        notifyListeners();
+      }
+    });
+  }
+
+  void deleteTodo(String id) {
+    guard(() {
+      _todos.removeWhere((todo) => todo.id == id);
+      todoService.deleteTodo(id);
+      notifyListeners();
+    });
+  }
+}
+```
+
+### Step 3: Build UI with GuardView
+
+```dart
+class TodoListView extends StatefulWidget {
+  const TodoListView({super.key});
+
+  @override
+  State<TodoListView> createState() => _TodoListViewState();
+}
+
+class _TodoListViewState extends State<TodoListView> {
+  final todoViewModel = TodoViewModel();
+
+  @override
+  void initState() {
+    super.initState();
+    // Trigger initial data load
+    todoViewModel.reload();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('TODO List')),
+      body: GuardView(
+        model: todoViewModel,
+        builder: (context) {
+          // This only renders when state is Normal
+          return ListenableWidget(
+            model: todoViewModel,
+            builder: (context) {
+              return ListView.builder(
+                itemCount: todoViewModel.todos.length,
+                itemBuilder: (context, index) {
+                  final todo = todoViewModel.todos[index];
+                  return ListTile(
+                    leading: Checkbox(
+                      value: todo.completed,
+                      onChanged: (_) => todoViewModel.toggleTodo(todo.id),
+                    ),
+                    title: Text(todo.title),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => todoViewModel.deleteTodo(todo.id),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddDialog(context),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+```
+
+## Advanced Features
+
+### Pagination Support
+
+Flutter Reload includes built-in pagination support with `PaginationModel` and `PaginationViewMixin`.
+
+**Model Implementation**:
+```dart
+class NewsViewModel extends GuardViewModel 
+    with PaginationViewMixin<NewsEntity> {
+  static const int pageSize = 20;
+
+  @override
+  late final PaginationModel<NewsEntity> paginationModel;
+
+  NewsViewModel() : super(GuardState.init) {
+    paginationModel = PaginationModel(
+      guardStateSupplier: () => guardState,
+      onNextPage: fetchNextPage,
+    );
+  }
+
+  @override
+  FutureOr<void> reload() async {
+    await guardReload(() async {
+      final firstPageData = await newsService.getNews(
+        start: 0,
+        end: pageSize,
+        force: true,
+      );
+      paginationModel.reset(
+        currentPage: PaginationModel.firstPage,
+        lastPage: PaginationModel.infinityPage, // For infinite scroll
+        data: firstPageData,
+      );
+      notifyListeners();
+    });
+  }
+
+  @override
+  FutureOr<({int page, List<NewsEntity> data})?> fetchNextPage(
+      int nextPage) async {
+    return await guard(() async {
+      final start = (nextPage - 1) * pageSize;
+      final end = start + pageSize;
+      final data = await newsService.getNews(start: start, end: end);
+      notifyListeners();
+      return data.isNotEmpty ? (page: nextPage, data: data) : null;
+    });
+  }
+}
+```
+
+**View Implementation**:
+```dart
+GuardView(
+  model: newsViewModel,
+  builder: (context) {
+    return ListenableWidget(
+      model: newsViewModel,
+      builder: (context) {
+        return ListView.separated(
+          itemBuilder: (context, index) {
+            final rowData = newsViewModel.paginationModel.getData(index);
+            return rowData != null
+                ? NewsItemWidget(news: rowData)
+                : PaginationTriggerWidget(
+                    model: newsViewModel.paginationModel
+                  );
+          },
+          separatorBuilder: (context, index) => const Divider(),
+          itemCount: newsViewModel.paginationModel.rowCountWithTrigger,
+        );
+      },
+    );
+  },
+)
+```
+
+### Custom Exception Handling
+
+Implement custom exceptions for better error categorization:
+
+```dart
+class CustomException implements Exception {
+  final String message;
+  final dynamic stackTrace;
+  final bool isOffline;
+
+  CustomException({
+    required this.message,
+    this.stackTrace,
+    this.isOffline = false,
+  });
+}
+
+// Convert platform exceptions to custom exceptions
+CustomException? toCustomException(dynamic ex, dynamic st) {
+  switch (ex) {
+    case http.ClientException():
+      return CustomException(
+        message: ex.message,
+        stackTrace: st,
+        isOffline: true,
+      );
+    case SocketException():
+      return CustomException(
+        message: 'Network error',
+        stackTrace: st,
+        isOffline: true,
+      );
+    case TimeoutException():
+      return CustomException(
+        message: 'Request timeout',
+        stackTrace: st,
+        isOffline: true,
+      );
+    default:
+      return null;
+  }
+}
+```
+
+### Error Interception with onError
+
+Use `onError` callback to intercept and handle specific errors:
+
+```dart
+void deleteItem(String id) {
+  guard(
+    () async {
+      await itemService.deleteItem(id);
+      _items.removeWhere((item) => item.id == id);
+      notifyListeners();
+    },
+    onError: (exception, stackTrace) {
+      if (exception is NotFoundException) {
+        // Item already deleted, ignore error
+        return GuardExceptionHandleResult.mute;
+      }
+      // Let default handler process other errors
+      return GuardExceptionHandleResult.byDefault;
+    },
+  );
+}
+```
+
+**GuardExceptionHandleResult Options**:
+- `byDefault`: Use default exception handling behavior
+- `mute`: Silently ignore the exception (no UI feedback)
+- `muteOnlyForOffline`: Ignore only offline errors
+
+### Parent-Child Guard Relationships
+
+For nested models, use parent parameter to delegate error handling:
+
+```dart
+class ParentViewModel extends GuardViewModel {
+  late final ChildViewModel childViewModel;
+
+  ParentViewModel() : super(GuardState.init) {
+    childViewModel = ChildViewModel(parent: this);
+  }
+
+  @override
+  FutureOr<void> reload() async {
+    await guardReload(() async {
+      await childViewModel.reload();
+    });
+  }
+}
+
+class ChildViewModel extends GuardViewModel {
+  ChildViewModel({required GuardViewModelMixin parent}) 
+      : super(GuardState.normal, parent: parent);
+
+  @override
+  FutureOr<void> reload() async {
+    await guardReload(() async {
+      // Errors will be handled by parent's guard state
+    });
+  }
+}
+```
+
+### Manual State Control with guardRaw
+
+For advanced scenarios requiring manual state control:
+
+```dart
+void complexOperation() {
+  guardRaw((guardStateController) async {
+    // Manually control state transitions
+    guardStateController.value = GuardState.init;
+    
+    try {
+      final step1 = await service.step1();
+      
+      // Custom intermediate state
+      guardStateController.value = CustomLoadingState(progress: 0.5);
+      
+      final step2 = await service.step2(step1);
+      
+      guardStateController.value = GuardState.normal;
+      notifyListeners();
+    } catch (e) {
+      guardStateController.value = ErrorGuardState(cause: e);
+    }
+  });
+}
+```
+
+## Best Practices
+
+### 1. Initialization Pattern
+
+Always initialize `ReloadConfiguration` before `runApp()`:
+```dart
+void main() {
+  ReloadConfiguration.init(
+    exceptionHandle: globalExceptionHandle,
+    abnormalStateBuilder: globalAbnormalStateBuilder,
+  );
+  runApp(const MyApp());
+}
+```
+
+### 2. Use guardReload for Data Loading
+
+Use `guardReload()` for operations that load/reload data and need loading states:
+```dart
+@override
+FutureOr<void> reload() async {
+  await guardReload(() async {
+    // Load data - automatically shows loading UI
+    _data = await service.fetchData();
+    notifyListeners();
+  });
+}
+```
+
+### 3. Use guard for User Actions
+
+Use `guard()` for user-triggered actions that don't need loading states:
+```dart
+void addItem(Item item) {
+  guard(() {
+    _items.add(item);
+    service.saveItem(item);
+    notifyListeners();
+  });
+}
+```
+
+### 4. Proper ViewModel Lifecycle
+
+Call `reload()` in `initState()` to trigger initial data load:
+```dart
+@override
+void initState() {
+  super.initState();
+  viewModel.reload();
+}
+```
+
+### 5. Efficient UI Updates
+
+Use `ListenableWidget` inside `GuardView.builder` for efficient rebuilds:
+```dart
+GuardView(
+  model: viewModel,
+  builder: (context) {
+    return ListenableWidget(
+      model: viewModel,
+      builder: (context) {
+        // Only rebuilds when notifyListeners() is called
+        return YourContentWidget();
+      },
+    );
+  },
+)
+```
+
+### 6. Logging and Monitoring
+
+Add logging in exception handler for production monitoring:
+```dart
+void globalExceptionHandle(exception, stackTrace, ...) {
+  // Log to monitoring service
+  logger.error('Exception caught by guard', 
+    error: exception, 
+    stackTrace: stackTrace
+  );
+  
+  // Then handle UI state
+  if (guardStateController != null) {
+    // ... handle state
+  }
+}
+```
+
+### 7. Testing ViewModels
+
+Test ViewModels by checking guard state transitions:
+```dart
+test('reload sets state to normal on success', () async {
+  final viewModel = MyViewModel();
+  
+  expect(viewModel.guardState, isA<InitGuardState>());
+  
+  await viewModel.reload();
+  
+  expect(viewModel.guardState, isA<NormalGuardState>());
+  expect(viewModel.data, isNotEmpty);
+});
+
+test('reload sets error state on failure', () async {
+  final viewModel = MyViewModel(failingService);
+  
+  await viewModel.reload();
+  
+  expect(viewModel.guardState, isA<ErrorGuardState>());
+});
+```
+
+## Common Patterns
+
+### Pattern 1: CRUD Operations
+
+```dart
+class ItemViewModel extends GuardViewModel {
+  final _items = <Item>[];
+  List<Item> get items => _items;
+
+  ItemViewModel() : super(GuardState.init);
+
+  @override
+  FutureOr<void> reload() async {
+    await guardReload(() async {
+      _items.clear();
+      _items.addAll(await itemService.getAll());
+      notifyListeners();
+    });
+  }
+
+  void create(Item item) {
+    guard(() async {
+      await itemService.create(item);
+      _items.add(item);
+      notifyListeners();
+    });
+  }
+
+  void update(Item item) {
+    guard(() async {
+      await itemService.update(item);
+      final index = _items.indexWhere((i) => i.id == item.id);
+      if (index != -1) {
+        _items[index] = item;
+        notifyListeners();
+      }
+    });
+  }
+
+  void delete(String id) {
+    guard(() async {
+      await itemService.delete(id);
+      _items.removeWhere((i) => i.id == id);
+      notifyListeners();
+    });
+  }
+}
+```
+
+### Pattern 2: Persistence with SharedPreferences
+
+```dart
+class TodoViewModel extends GuardViewModel {
+  final _todos = <Todo>[];
+  List<Todo> get todos => _todos;
+
+  TodoViewModel() : super(GuardState.init);
+
+  @override
+  FutureOr<void> reload() async {
+    await guardReload(() async {
+      await _loadFromStorage();
+      notifyListeners();
+    });
+  }
+
+  void addTodo(String title) {
+    guard(() async {
+      final todo = Todo(id: generateId(), title: title);
+      _todos.add(todo);
+      await _saveToStorage();
+      notifyListeners();
+    });
+  }
+
+  Future<void> _loadFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString('todos');
+    if (json != null) {
+      final List<dynamic> decoded = jsonDecode(json);
+      _todos.clear();
+      _todos.addAll(decoded.map((e) => Todo.fromJson(e)));
+    }
+  }
+
+  Future<void> _saveToStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = jsonEncode(_todos.map((e) => e.toJson()).toList());
+    await prefs.setString('todos', json);
+  }
+}
+```
+
+### Pattern 3: Search/Filter with Debounce
+
+```dart
+class SearchViewModel extends GuardViewModel {
+  final _allItems = <Item>[];
+  final _filteredItems = <Item>[];
+  List<Item> get items => _filteredItems;
+  
+  String _searchQuery = '';
+  Timer? _debounceTimer;
+
+  SearchViewModel() : super(GuardState.init);
+
+  @override
+  FutureOr<void> reload() async {
+    await guardReload(() async {
+      _allItems.clear();
+      _allItems.addAll(await itemService.getAll());
+      _applyFilter();
+      notifyListeners();
+    });
+  }
+
+  void search(String query) {
+    _searchQuery = query;
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      guard(() {
+        _applyFilter();
+        notifyListeners();
+      });
+    });
+  }
+
+  void _applyFilter() {
+    _filteredItems.clear();
+    if (_searchQuery.isEmpty) {
+      _filteredItems.addAll(_allItems);
+    } else {
+      _filteredItems.addAll(
+        _allItems.where((item) => 
+          item.name.toLowerCase().contains(_searchQuery.toLowerCase())
+        )
+      );
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+### Issue: GuardView shows loading forever
+
+**Cause**: `reload()` not called or exception not properly handled.
+
+**Solution**: 
+1. Ensure `reload()` is called in `initState()`
+2. Check that `guardReload()` is used (not plain `guard()`)
+3. Verify exception handler sets appropriate state
+
+### Issue: UI doesn't update after model changes
+
+**Cause**: Missing `notifyListeners()` or `ListenableWidget` not used.
+
+**Solution**:
+1. Call `notifyListeners()` after state changes
+2. Wrap content in `ListenableWidget` inside `GuardView.builder`
+
+### Issue: Exceptions not caught by guard
+
+**Cause**: Code executed outside guard protection.
+
+**Solution**: Ensure all async operations are inside `guard()` or `guardReload()` callbacks.
+
+### Issue: Multiple loading indicators shown
+
+**Cause**: Nested `GuardView` widgets without parent relationship.
+
+**Solution**: Use parent parameter in child ViewModel:
+```dart
+ChildViewModel({required GuardViewModelMixin parent}) 
+    : super(GuardState.normal, parent: parent);
+```
+
+## Package Information
+
+- **Package**: flutter_reload
+- **Version**: 0.0.9
+- **Repository**: https://github.com/CakeResume/flutter_reload
+- **Pub.dev**: https://pub.dev/packages/flutter_reload
+
+## When to Use Flutter Reload
+
+**Use flutter_reload when**:
+- Building apps with async operations (network calls, database access, file I/O, etc.)
+- Want to reduce boilerplate for loading/error/offline state management
+- Need consistent error handling across the app
+- Working with ChangeNotifier or any Listenable-based state management
+- Want to separate error handling logic from business logic
+
+**You might STILL use flutter_reload even when**:
+- You have an existing error handling system (flutter_reload adds UI state management layer on top and provides a unified entry point for all exceptions)
+- You need custom loading/error UI per screen (use per-GuardView `abnormalStateBuilder` to override global defaults)
+- Building simple apps (it actually simplifies even simple apps by eliminating repetitive state management code)
+- You only have a few async operations (any async operation benefits from automatic state transitions)
+
+**Consider alternatives ONLY when**:
+- You're using a state management solution that already provides comprehensive built-in loading/error state handling AND automatic UI rendering (very rare)
+- You have very unusual async patterns that fundamentally don't fit the Init → Normal → Error state flow
+- Your app truly has zero async operations (extremely rare in modern apps)
+
+
