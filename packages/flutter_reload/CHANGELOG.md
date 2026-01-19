@@ -1,3 +1,8 @@
+## 1.0.0 - 2026-01-19
+
+- Support Cursor rules for programming with LLM or even more for agentic programming
+- Support state machine for init and normal
+
 ## 0.0.9 - 2024-10-22
 
 - Fix index fetch error when retrieving data using a negative index from [PaginationModel].
