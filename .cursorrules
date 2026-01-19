@@ -66,8 +66,8 @@ Widget build(BuildContext context) {
 `GuardState` represents the current state of a view/model:
 
 - **BeforeInitGuardState**: Not yet initialized
-- **InitGuardState**: Loading initial data (shows loading UI)
-- **NormalGuardState**: Data loaded successfully (shows content UI)
+- **InitGuardState<T>**: Loading initial data (shows loading UI). Supports optional payload for loading context.
+- **NormalGuardState<T>**: Data loaded successfully (shows content UI). Supports optional payload for business outcomes.
 - **OfflineGuardState**: Network connectivity issue (shows offline UI)
 - **ErrorGuardState<T>**: Error occurred with typed exception (shows error UI)
 
@@ -77,6 +77,130 @@ BeforeInit → Init → Normal (success)
                  ↓
                  Error/Offline (failure)
 ```
+
+### 3. Two-Layer State Design (Custom State Payloads)
+
+GuardState separates concerns into two layers:
+
+1. **System layer** (GuardState): Is the data loaded?
+   - `InitGuardState` - Loading in progress
+   - `NormalGuardState` - Loading completed successfully
+   - `ErrorGuardState` - An unexpected error occurred
+   - `OfflineGuardState` - Network connectivity issue
+
+2. **Business layer** (payload): What is the outcome?
+   - `InitGuardState<T>` and `NormalGuardState<T>` accept an optional generic payload
+   - Use payload to represent business-level states without creating new guard state types
+
+**Key Insight**: "Normal" means the system successfully completed loading and determined an outcome. It does NOT mean "everything is fine". The payload describes the business-level outcome.
+
+**When to use payloads**:
+- **Init payload**: Loading steps, progress indicators, multi-phase loading
+- **Normal payload**: Business outcomes like subscription required, maintenance mode, content archived, region blocked, etc.
+
+**Example - Defining Custom Business States**:
+```dart
+// Define your business states as a sealed class for type-safe exhaustive handling
+sealed class ContentState {}
+class ContentReady extends ContentState {
+  final String content;
+  ContentReady({required this.content});
+}
+class SubscriptionRequired extends ContentState {
+  final String tier;
+  SubscriptionRequired({required this.tier});
+}
+class MaintenanceMode extends ContentState {
+  final String message;
+  MaintenanceMode({required this.message});
+}
+class ContentArchived extends ContentState {
+  final DateTime archivedAt;
+  ContentArchived({required this.archivedAt});
+}
+```
+
+**Example - Setting Custom State in ViewModel**:
+```dart
+@override
+FutureOr<void> reload() async {
+  await guardRaw((guardStateController) async {
+    // Multi-step loading with InitGuardState payload
+    guardStateController.value = const InitGuardState(
+      payload: LoadingStep.authenticating,
+    );
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    guardStateController.value = const InitGuardState(
+      payload: LoadingStep.fetchingContent,
+    );
+    final result = await api.fetchContent();
+    
+    // Set business outcome via NormalGuardState payload
+    if (result.isArchived) {
+      guardStateController.value = NormalGuardState(
+        payload: ContentArchived(archivedAt: result.archivedAt),
+      );
+    } else if (result.requiresSubscription) {
+      guardStateController.value = NormalGuardState(
+        payload: SubscriptionRequired(tier: result.requiredTier),
+      );
+    } else {
+      guardStateController.value = NormalGuardState(
+        payload: ContentReady(content: result.content),
+      );
+    }
+    notifyListeners();
+  });
+}
+```
+
+**Example - Handling Custom States in GuardView**:
+```dart
+GuardView(
+  model: viewModel,
+  // Optional: Custom abnormalStateBuilder for InitGuardState with payload
+  abnormalStateBuilder: (context, state, reload) {
+    if (state case InitGuardState<LoadingStep>(:var payload)) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            Text(payload?.message ?? 'Loading...'),
+          ],
+        ),
+      );
+    }
+    return null; // Use default for other abnormal states
+  },
+  // Handle all NormalGuardState cases (including custom payloads) in builder
+  builder: (context) {
+    return ListenableWidget(
+      model: viewModel,
+      builder: (context) {
+        if (viewModel.guardState case NormalGuardState<ContentState>(:var payload)) {
+          // Exhaustive switch - compiler ensures all cases are handled!
+          return switch (payload) {
+            null => const Text('Ready'),
+            ContentReady(:var content) => Text(content),
+            SubscriptionRequired(:var tier) => UpgradePrompt(tier: tier),
+            MaintenanceMode(:var message) => MaintenanceWidget(message: message),
+            ContentArchived(:var archivedAt) => ArchivedWidget(date: archivedAt),
+          };
+        }
+        return const SizedBox();
+      },
+    );
+  },
+)
+```
+
+**Responsibility Separation**:
+| Layer | Handler | Responsibility |
+|-------|---------|----------------|
+| System (Init/Offline/Error) | `abnormalStateBuilder` | Loading UI, network errors, unexpected errors |
+| Business (Normal + payload) | `builder` | All business outcomes including "abnormal" business states |
 
 ## Architecture Components
 
@@ -581,30 +705,39 @@ class ChildViewModel extends GuardViewModel {
 
 ### Manual State Control with guardRaw
 
-For advanced scenarios requiring manual state control:
+For advanced scenarios requiring manual state control, use `guardRaw()` with custom payloads:
 
 ```dart
+enum LoadingStep { step1, step2, step3 }
+
 void complexOperation() {
   guardRaw((guardStateController) async {
-    // Manually control state transitions
-    guardStateController.value = GuardState.init;
+    // Multi-step loading with custom payloads
+    guardStateController.value = const InitGuardState(
+      payload: LoadingStep.step1,
+    );
+    final step1Result = await service.step1();
     
-    try {
-      final step1 = await service.step1();
-      
-      // Custom intermediate state
-      guardStateController.value = CustomLoadingState(progress: 0.5);
-      
-      final step2 = await service.step2(step1);
-      
-      guardStateController.value = GuardState.normal;
-      notifyListeners();
-    } catch (e) {
-      guardStateController.value = ErrorGuardState(cause: e);
-    }
+    guardStateController.value = const InitGuardState(
+      payload: LoadingStep.step2,
+    );
+    final step2Result = await service.step2(step1Result);
+    
+    guardStateController.value = const InitGuardState(
+      payload: LoadingStep.step3,
+    );
+    final finalResult = await service.step3(step2Result);
+    
+    // Set final state with business outcome payload
+    guardStateController.value = NormalGuardState(
+      payload: ContentReady(data: finalResult),
+    );
+    notifyListeners();
   });
 }
 ```
+
+See **Two-Layer State Design** section for more details on using payloads.
 
 ## Best Practices
 
