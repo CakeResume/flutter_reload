@@ -1,3 +1,7 @@
+## 1.0.1 - 2026-01-19
+
+- Minor fine-tune for generic of guard state
+
 ## 1.0.0 - 2026-01-19
 
 - Support Cursor rules for programming with LLM or even more for agentic programming
