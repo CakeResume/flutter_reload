@@ -109,7 +109,7 @@ class BeforeInitGuardState extends GuardState {
 /// ```
 ///
 /// see [GuardState]
-class InitGuardState<T extends Object> extends GuardState {
+class InitGuardState<T> extends GuardState {
   /// Optional payload for custom loading context.
   final T? payload;
 
@@ -160,7 +160,7 @@ class InitGuardState<T extends Object> extends GuardState {
 /// ```
 ///
 /// see [GuardState]
-class NormalGuardState<T extends Object> extends GuardState {
+class NormalGuardState<T> extends GuardState {
   /// Optional payload for custom business state.
   final T? payload;
 
